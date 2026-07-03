@@ -34,7 +34,7 @@ export default function LoginPage() {
             <BarChart3 size={22} />
           </div>
           <div>
-            <div className="text-lg font-bold leading-tight">ASIN Tracker</div>
+            <div className="text-lg font-bold leading-tight">AI Business Analytics</div>
             <div className="text-[10px] font-semibold uppercase tracking-widest text-white/70">
               Kratos Analytics
             </div>

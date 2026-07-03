@@ -42,7 +42,7 @@ export default function AppLayout() {
             <BarChart3 size={20} />
           </div>
           <div>
-            <h1 className="text-base font-bold leading-tight text-[var(--text)]">ASIN Tracker</h1>
+            <h1 className="text-base font-bold leading-tight text-[var(--text)]">AI Business Analytics</h1>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">
               Kratos Analytics
             </p>
