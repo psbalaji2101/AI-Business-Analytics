@@ -27,6 +27,8 @@ and generates AI-powered natural-language insights.
 | 5 | Scraper integration | ✅ COMPLETE (live Amazon HTML scraping) |
 | 6 | AI analytics layer | ⏸️ ON HOLD (deferred by user) |
 | 7 | Testing + deployment | ✅ COMPLETE |
+| 8 | Sales report + India state map | ✅ COMPLETE |
+| 8.1 | Real India choropleth map | ✅ COMPLETE |
 
 **Approved decisions:** Scraping = **direct HTML** (httpx/Playwright) default; AI = **Mock LLM** now, swappable later. Phase 3: seed **~90 days synthetic snapshots**; AI endpoints stay **placeholders**. Phase 4: dark SaaS UI per reference images. Phase 5: live HTML scraping verified against amazon.in. Phase 6 deferred; jumped to Phase 7.
 
@@ -271,6 +273,16 @@ Base URL: `/api/v1`
 |--------|------|------|---------|
 | POST | `/ai/ask` | `{ question }` | `{ answer, data?, charts? }` |
 
+### Sales
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/sales/upload` | CSV multipart; dedup by SHA-256 content hash → `{ duplicate, inserted, total_units, total_gross }` |
+| GET | `/sales/summary` | KPIs (units, gross, orders, distinct ASINs/states, date range); filters `asin, date_from, date_to` |
+| GET | `/sales/by-asin` | per-ASIN units/gross/orders; product name from ASIN catalog (not overridden by CSV) |
+| GET | `/sales/by-state` | per-state units/gross/orders (India map) |
+| GET | `/sales/uploads` | list uploaded files |
+| DELETE | `/sales/uploads/{id}` | remove an upload + its rows (cascade) |
+
 ### Scraping (internal/admin)
 | Method | Path | Notes |
 |--------|------|-------|
@@ -406,6 +418,18 @@ B0DZHX9H4L, B0DZHW42T8, B0FH9L7Q86, B0DXCWSMBQ, B0FY3GW1Y6, B0DXCV76QP, B0FY3L1F
   - Added root **`Makefile`** (`install`, `clean`, `dev`, `scrape`, `seed`, `seed-asins`, `test`) with OS-aware venv paths, plus a `backend/.env` so dev/scrape use the live html adapter. Updated frontend delete wording to reflect permanent deletion.
 - **Phase 7.2 (fix):** Dashboard "active products" count (e.g. 7) didn't match the product grid (6) because `product_cards()` skipped ASINs with no snapshot yet (`if not snap: continue`) — the same omission hid newly-added/un-scraped ASINs from the **Analytics ASIN dropdown** (which sources from that endpoint). Fixed `product_cards()` to return a card for **every active ASIN**, with null metrics when not yet scraped. Frontend now renders a gray **"No Data"** status for un-scraped products instead of a misleading "Out of Stock". Verified: summary active=7, grid rows=7, inventory 7 In, and the re-added ASIN appears with data in both the grid and the dropdown.
 - **Phase 7.3 (fix):** **User-edited product names were wiped on the next scrape** (the scraper always set `product_name` to the Amazon title). Added a `name_is_custom` flag on `asins` (additive SQLite/Postgres migration in `init_db`). Policy: a name typed by the user (Add or Edit) or supplied in a CSV row is **custom and never overwritten**; the scraper only fills names that are blank/placeholder (seed ASINs, blank CSV rows). Exposed `name_is_custom` in `AsinOut`; mock adapter now returns a name so the behavior is testable. Verified live: rename → scrape → name preserved. 25 tests pass.
+- **Phase 8 (Sales report + India state map):** Added a **Sales** module — upload Amazon sales-report CSVs (e.g. "Sales Report April to June.csv") and analyze units/revenue/geography.
+  - **Backend:** new `sales_uploads` + `sales_records` tables (auto-created via `create_all`). `SalesService` parses the CSV (asin, itemName, day+month+year→`order_date`, grossUnits→units, grossSales, netUnits/netSales, category/subcategory, stateName/city/postalCode), and exposes aggregations `summary` / `by_asin` / `by_state` (with optional `asin`, `date_from`, `date_to` filters). New `sales` router: `POST /sales/upload`, `GET /sales/{summary,by-asin,by-state,uploads}`, `DELETE /sales/uploads/{id}`.
+  - **Item name not overridden:** `by_asin` LEFT JOINs `asins` and uses `coalesce(asins.product_name, sales_records.item_name, asin)` — the Manage-page name always wins; the CSV name is only a fallback for untracked ASINs.
+  - **Deduplication:** each upload stores the **SHA-256 of the raw file bytes** with a UNIQUE constraint. Re-uploading the identical file is detected and **skipped** (no rows inserted; returns `duplicate:true`), so uploading the same file twice can't double the totals. Deleting an upload cascades its rows (enables a clean re-upload).
+  - **Frontend:** new **Sales Report** page (nav + `/sales` route) with CSV upload, ASIN/date filters, KPI cards (units, gross, orders, states), a per-ASIN sales table (catalog names), an uploaded-files table with delete, a **State Leaderboard** bar list, and a dependency-free **India bubble map** (`components/sales/IndiaMap.tsx`) — hardcoded state centroids projected onto a low-vertex India silhouette, bubble size ∝ units, hover tooltip (units/gross/orders). No new npm deps.
+  - **Verified:** `frontend npm run build` passes; backend suite **28 tests pass** (added `tests/test_sales.py` covering upload aggregation, catalog-name-not-overridden, duplicate-file skip, and delete-removes-rows).
+- **Phase 8.1 (real India choropleth map):** Replaced the crude bubble map with a proper **state-level choropleth**. Preprocessed authoritative district boundaries (udit-001/india-maps-data) by geometrically **dissolving districts into 36 clean state/UT polygons** (polygon union, coords rounded to ~110 m) → `frontend/public/india_states.geojson` (~82 KB, modern names incl. Telangana, Ladakh, Odisha, Uttarakhand, Puducherry). Rewrote `IndiaMap.tsx` to fetch the GeoJSON and render each state as an SVG `<path>` via a latitude-corrected equirectangular projection auto-fit to the geometry bounds; fill intensity ∝ √units (choropleth), hover highlights the state with a units/gross/orders tooltip, plus a Low→High legend. Robust CSV→GeoJSON name matching (canonicalize `&`→`AND`, strip non-letters, alias `PONDICHERRY→PUDUCHERRY`, `CHATTISGARH→CHHATTISGARH`, `ORISSA→ODISHA`, `ANDAMAN & NICOBAR IS→…ISLANDS`, etc.); unmatched regions are listed under the map. No new runtime npm deps (union lib used only in a throwaway temp workspace). **Verified live in-browser**: clean India map with correct per-state shading (Maharashtra darkest), `npm run build` passes.
+- **Deployment (local):** Docker Desktop engine was unavailable, so the app was run locally via the venv/npm path — backend `uvicorn app.main:app` on `:8000` (SQLite, seeded) and Vite dev server on `:5173` (proxies `/api`→backend). Smoke-tested login + `/sales/*` endpoints; Sales page and India map verified in the integrated browser.
+- **Phase 8.2 (Sales UX enhancements):** Per user feedback — (1) removed the **State Leaderboard** card, map is now full-width; (2) the ASIN column in the **Sales by Product** table now **deep-links to `amazon.in/dp/{asin}`** (external-link icon); (3) the **ASIN filter is a searchable combobox** (`components/sales/AsinCombo.tsx` — trigger + embedded search box + scrollable ASIN/product-name list with click-outside close), replacing the plain text box; (4) fixed the header **Refresh** button — now `await qc.refetchQueries({ type: "active" })` with a spinning icon + "Refreshing…" state (previously `invalidateQueries()` gave no feedback and appeared to do nothing); (5) `by_asin` LEFT JOIN now ignores soft-deleted ASINs (`Asin.is_deleted == False`) so the Manage-page name override only uses live catalog rows. Verified live in-browser (search filters list, selecting an ASIN filters KPIs/table/map, ASIN link resolves); `npm run build` + sales tests pass.
+- **Phase 8.3 (uploads list):** `list_uploads` now returns the **10 most recent** uploads only (`ORDER BY uploaded_at DESC LIMIT 10`). Restarted the local backend with `--reload` and verified the endpoint order/cap.
+- **Phase 8.4 (configurable table rows):** The **Sales by Product (ASIN)** table now has a **Rows selector (50 / 100 / 500)** in its header (default 50) that client-side-limits the displayed rows, plus a "Showing X of Y products" footer. Verified in-browser; `npm run build` passes.
+- **Phase 8.5 (table pagination):** Added **Previous/Next pagination** to the Sales by Product table (the Rows selector is the page size). Footer shows the `A–B of N products` range; page auto-resets to 1 when filters or page size change; page index is clamped to the available page count. Verified live (361 products, page 2 shows "51–100 of 361"); `npm run build` passes.
 
 ### Implemented metric definitions (Phase 3)
 - **price_change** = latest snapshot price − immediately-previous snapshot price

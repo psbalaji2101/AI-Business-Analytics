@@ -5,7 +5,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import admin, ai, analytics, asins, auth, dashboard
+from app.api.routers import (
+    admin,
+    ai,
+    alerts,
+    analytics,
+    asins,
+    auth,
+    dashboard,
+    operational,
+    sales,
+    users,
+)
 from app.core.config import settings
 from app.db.session import init_db
 from app.scheduler.jobs import start_scheduler, stop_scheduler
@@ -36,8 +47,12 @@ app.include_router(auth.router, prefix=prefix)
 app.include_router(asins.router, prefix=prefix)
 app.include_router(dashboard.router, prefix=prefix)
 app.include_router(analytics.router, prefix=prefix)
+app.include_router(alerts.router, prefix=prefix)
+app.include_router(users.router, prefix=prefix)
 app.include_router(ai.router, prefix=prefix)
 app.include_router(admin.router, prefix=prefix)
+app.include_router(sales.router, prefix=prefix)
+app.include_router(operational.router, prefix=prefix)
 
 
 @app.get("/health", tags=["health"])

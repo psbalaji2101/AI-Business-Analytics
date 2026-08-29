@@ -27,6 +27,16 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_columns)
 
+    # Keep the configured development login usable while moving authentication
+    # to persisted users. Existing installations are left unchanged.
+    from app.core.config import settings
+    from app.services.user_service import UserService
+
+    async with AsyncSessionLocal() as session:
+        await UserService(session).ensure_configured_user(
+            email=settings.auth_email, password=settings.auth_password
+        )
+
 
 def _ensure_columns(sync_conn) -> None:
     """Lightweight additive migration: add new columns to an existing table."""

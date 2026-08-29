@@ -1,24 +1,35 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
   BarChart3,
+  BellRing,
   Bot,
   LayoutDashboard,
   LineChart,
+  Radar,
   LogOut,
   Moon,
   Package,
   RefreshCw,
+  ShoppingBag,
   Sun,
   User,
+  UsersRound,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRunScrape } from "../../api/hooks";
 import { useAuth } from "../../auth/AuthContext";
 import { useTheme } from "../../theme/ThemeContext";
 import { formatDateTime } from "../../lib/utils";
+import { errorMessage, useToast } from "../ui/Toast";
 
 const navItems = [
   { to: "/dashboard", label: "Business Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Business Analytics", icon: LineChart },
+  { to: "/operational-analytics", label: "Operational Analytics", icon: Radar },
+  { to: "/alerts", label: "Product Alerts", icon: BellRing },
+  { to: "/sales", label: "Sales Report", icon: ShoppingBag },
+  { to: "/users", label: "User Management", icon: UsersRound },
   { to: "/asins", label: "Manage ASINs", icon: Package },
 ];
 
@@ -27,10 +38,32 @@ export default function AppLayout() {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const toast = useToast();
+  const scrape = useRunScrape();
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Force a refetch of every mounted query (ignores staleTime).
+      await qc.refetchQueries({ type: "active" });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleScrape = async () => {
+    try {
+      const run = await scrape.mutateAsync();
+      toast.success(`Scrape ${run.status}: ${run.succeeded}/${run.total} products updated.`);
+    } catch (error) {
+      toast.error(errorMessage(error, "The scrape could not be started."));
+    }
   };
 
   return (
@@ -61,10 +94,21 @@ export default function AppLayout() {
             {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
           </button>
           <button
-            onClick={() => qc.invalidateQueries()}
-            className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-2)]"
+            onClick={handleScrape}
+            disabled={scrape.isPending}
+            className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3.5 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--panel-2)] disabled:opacity-60"
+            title="Scrape all active ASINs now"
           >
-            <RefreshCw size={15} /> Refresh
+            <RefreshCw size={15} className={scrape.isPending ? "animate-spin" : ""} />
+            {scrape.isPending ? "Scraping…" : "Scrape now"}
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-2)] disabled:opacity-60"
+          >
+            <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Refreshing…" : "Refresh"}
           </button>
           <button
             onClick={handleLogout}

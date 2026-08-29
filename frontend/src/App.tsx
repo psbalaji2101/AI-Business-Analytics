@@ -5,6 +5,10 @@ import AppLayout from "./components/layout/AppLayout";
 import ManageAsins from "./pages/ManageAsins";
 import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
+import Sales from "./pages/Sales";
+import OperationalAnalytics from "./pages/OperationalAnalytics";
+import Alerts from "./pages/Alerts";
+import Users from "./pages/Users";
 import type { ReactNode } from "react";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -26,6 +30,10 @@ export default function App() {
         <Route path="/asins" element={<ManageAsins />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/alerts" element={<Alerts />} />
+        <Route path="/users" element={<Users />} />
+        <Route path="/sales" element={<Sales />} />
+        <Route path="/operational-analytics" element={<OperationalAnalytics />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

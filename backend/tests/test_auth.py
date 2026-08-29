@@ -35,3 +35,26 @@ async def test_me_with_token(client, auth_headers):
 
 async def test_protected_route_blocks_anonymous(client):
     assert (await client.get("/api/v1/asins")).status_code == 401
+
+
+async def test_create_and_track_user(client, auth_headers):
+    created = await client.post(
+        "/api/v1/users",
+        headers=auth_headers,
+        json={"email": "new.user@example.com", "password": "NewPassword1!"},
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["email"] == "new.user@example.com"
+    assert body["created_at"]
+    assert body["last_login_at"] is None
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "new.user@example.com", "password": "NewPassword1!"},
+    )
+    assert login.status_code == 200
+
+    users = await client.get("/api/v1/users", headers=auth_headers)
+    tracked = next(user for user in users.json() if user["email"] == "new.user@example.com")
+    assert tracked["last_login_at"] is not None

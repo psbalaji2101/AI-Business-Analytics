@@ -2,15 +2,27 @@
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
 ALGORITHM = "HS256"
+# PBKDF2-SHA256 is provided by Passlib itself, avoiding platform bcrypt binary
+# compatibility issues while ensuring user passwords are never stored in plaintext.
+password_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def verify_credentials(email: str, password: str) -> bool:
     """Mock auth: validate against the single configured user."""
     return email == settings.auth_email and password == settings.auth_password
+
+
+def hash_password(password: str) -> str:
+    return password_context.hash(password)
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return password_context.verify(password, password_hash)
 
 
 def create_access_token(subject: str) -> str:
