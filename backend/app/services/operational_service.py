@@ -302,6 +302,55 @@ def _metrics(values: dict[str, Any]) -> OperationalMetrics:
     )
 
 
+def _build_timeline(
+    plan_by_date: dict[date, list[OperationalForecastRow]],
+    actual_by_row_date: dict[tuple[int, date], OperationalActualRow],
+) -> list[OperationalTimelinePoint]:
+    timeline: list[OperationalTimelinePoint] = []
+    cumulative = {
+        "expected_units": 0.0,
+        "actual_units": 0.0,
+        "planned_spend": 0.0,
+        "actual_spend": 0.0,
+        "adjusted_budget": 0.0,
+    }
+    for report_date in sorted(plan_by_date):
+        expected_units = actual_units = planned_spend = actual_spend = adjusted = 0.0
+        for row in plan_by_date[report_date]:
+            month_days = _days_in_month(report_date)
+            expected_units += float(row.daily_run_rate)
+            planned_spend += float(row.total_budget) / month_days
+            actual = actual_by_row_date.get((row.id, report_date))
+            if not actual:
+                continue
+            units = float(actual.actual_drr)
+            actual_units += units
+            actual_spend += float(actual.total_spend)
+            monthly_units = float(row.daily_run_rate) * month_days
+            if monthly_units:
+                adjusted += float(row.total_budget) / monthly_units * units
+        cumulative["expected_units"] += expected_units
+        cumulative["actual_units"] += actual_units
+        cumulative["planned_spend"] += planned_spend
+        cumulative["actual_spend"] += actual_spend
+        cumulative["adjusted_budget"] += adjusted
+        timeline.append(
+            OperationalTimelinePoint(
+                date=report_date,
+                expected_units=_round(expected_units),
+                actual_units=_round(actual_units),
+                cumulative_expected_units=_round(cumulative["expected_units"]),
+                cumulative_actual_units=_round(cumulative["actual_units"]),
+                planned_spend=_round(planned_spend),
+                actual_spend=_round(actual_spend),
+                cumulative_planned_spend=_round(cumulative["planned_spend"]),
+                cumulative_actual_spend=_round(cumulative["actual_spend"]),
+                cumulative_adjusted_budget=_round(cumulative["adjusted_budget"]),
+            )
+        )
+    return timeline
+
+
 def _empty_dashboard() -> OperationalDashboard:
     return OperationalDashboard(
         date_from=None,
@@ -675,7 +724,12 @@ class OperationalService:
         asin_values: dict[tuple[str, str], dict[str, Any]] = defaultdict(_blank_accumulator)
         asin_names: dict[tuple[str, str], str] = {}
         plan_by_date: dict[date, list[OperationalForecastRow]] = defaultdict(list)
-        covered_dates: set[date] = set()
+        plan_by_category_date: dict[
+            str, dict[date, list[OperationalForecastRow]]
+        ] = defaultdict(lambda: defaultdict(list))
+        plan_by_asin_date: dict[
+            tuple[str, str], dict[date, list[OperationalForecastRow]]
+        ] = defaultdict(lambda: defaultdict(list))
 
         for month, row in plan_records:
             overlap_start = max(date_from, month)
@@ -692,8 +746,9 @@ class OperationalService:
                 values["planned"][component] = monthly / month_days * len(period_dates)
 
             for report_date in period_dates:
-                covered_dates.add(report_date)
                 plan_by_date[report_date].append(row)
+                plan_by_category_date[row.category][report_date].append(row)
+                plan_by_asin_date[(row.category, row.asin)][report_date].append(row)
                 actual = actual_by_row_date.get((row.id, report_date))
                 if not actual:
                     continue
@@ -723,6 +778,9 @@ class OperationalService:
                     asin=asin,
                     short_name=asin_names[(cat, asin)],
                     category=cat,
+                    timeline=_build_timeline(
+                        plan_by_asin_date[(cat, asin)], actual_by_row_date
+                    ),
                     **_metrics(asin_values[(cat, asin)]).model_dump(),
                 )
                 for cat, asin in asin_values
@@ -731,61 +789,23 @@ class OperationalService:
             asin_rows.sort(key=lambda item: item.actual_po_value, reverse=True)
             categories.append(
                 CategoryOperationalMetrics(
-                    category=category, asins=asin_rows, **_metrics(values).model_dump()
+                    category=category,
+                    asins=asin_rows,
+                    timeline=_build_timeline(
+                        plan_by_category_date[category], actual_by_row_date
+                    ),
+                    **_metrics(values).model_dump(),
                 )
             )
         categories.sort(key=lambda item: item.actual_po_value, reverse=True)
 
-        timeline: list[OperationalTimelinePoint] = []
-        cumulative = {
-            "expected_units": 0.0,
-            "actual_units": 0.0,
-            "planned_spend": 0.0,
-            "actual_spend": 0.0,
-            "adjusted_budget": 0.0,
-        }
-        for report_date in sorted(covered_dates):
-            expected_units = actual_units = planned_spend = actual_spend = adjusted = 0.0
-            for row in plan_by_date[report_date]:
-                month_days = _days_in_month(report_date)
-                expected_units += float(row.daily_run_rate)
-                planned_spend += float(row.total_budget) / month_days
-                actual = actual_by_row_date.get((row.id, report_date))
-                if not actual:
-                    continue
-                units = float(actual.actual_drr)
-                actual_units += units
-                actual_spend += float(actual.total_spend)
-                monthly_units = float(row.daily_run_rate) * month_days
-                if monthly_units:
-                    adjusted += float(row.total_budget) / monthly_units * units
-            cumulative["expected_units"] += expected_units
-            cumulative["actual_units"] += actual_units
-            cumulative["planned_spend"] += planned_spend
-            cumulative["actual_spend"] += actual_spend
-            cumulative["adjusted_budget"] += adjusted
-            timeline.append(
-                OperationalTimelinePoint(
-                    date=report_date,
-                    expected_units=_round(expected_units),
-                    actual_units=_round(actual_units),
-                    cumulative_expected_units=_round(cumulative["expected_units"]),
-                    cumulative_actual_units=_round(cumulative["actual_units"]),
-                    planned_spend=_round(planned_spend),
-                    actual_spend=_round(actual_spend),
-                    cumulative_planned_spend=_round(cumulative["planned_spend"]),
-                    cumulative_actual_spend=_round(cumulative["actual_spend"]),
-                    cumulative_adjusted_budget=_round(cumulative["adjusted_budget"]),
-                )
-            )
-
         return OperationalDashboard(
             date_from=date_from,
             date_to=date_to,
-            covered_days=len(covered_dates),
+            covered_days=len(plan_by_date),
             summary=_metrics(total),
             categories=categories,
-            timeline=timeline,
+            timeline=_build_timeline(plan_by_date, actual_by_row_date),
         )
 
     async def dashboard_export(

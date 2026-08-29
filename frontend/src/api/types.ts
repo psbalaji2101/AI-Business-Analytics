@@ -270,11 +270,13 @@ export interface AsinOperationalMetrics extends OperationalMetrics {
   asin: string;
   short_name: string;
   category: string;
+  timeline: OperationalTimelinePoint[];
 }
 
 export interface CategoryOperationalMetrics extends OperationalMetrics {
   category: string;
   asins: AsinOperationalMetrics[];
+  timeline: OperationalTimelinePoint[];
 }
 
 export interface OperationalTimelinePoint {

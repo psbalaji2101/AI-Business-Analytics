@@ -41,6 +41,7 @@ import { Card, KpiCard } from "../components/ui/Card";
 import { Input, Spinner } from "../components/ui/Spinner";
 import { errorMessage, useToast } from "../components/ui/Toast";
 import { formatDate, formatINR, formatNumber } from "../lib/utils";
+import { OperationalPerformanceVisuals } from "../components/operational/OperationalPerformanceVisuals";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -434,6 +435,10 @@ export default function OperationalAnalytics() {
               icon={<IndianRupee size={18} />}
             />
           </div>
+
+          {dashboard.data && dashboard.data.categories.length > 0 && (
+            <OperationalPerformanceVisuals dashboard={dashboard.data} />
+          )}
 
           <div className="grid gap-4 xl:grid-cols-2">
             <Card className="p-5">

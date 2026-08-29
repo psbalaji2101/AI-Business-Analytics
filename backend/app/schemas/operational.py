@@ -78,17 +78,6 @@ class OperationalMetrics(BaseModel):
     spend_breakdown: SpendBreakdown
 
 
-class AsinOperationalMetrics(OperationalMetrics):
-    asin: str
-    short_name: str
-    category: str
-
-
-class CategoryOperationalMetrics(OperationalMetrics):
-    category: str
-    asins: list[AsinOperationalMetrics]
-
-
 class OperationalTimelinePoint(BaseModel):
     date: date
     expected_units: float
@@ -102,6 +91,19 @@ class OperationalTimelinePoint(BaseModel):
     cumulative_adjusted_budget: float
 
 
+class AsinOperationalMetrics(OperationalMetrics):
+    asin: str
+    short_name: str
+    category: str
+    timeline: list[OperationalTimelinePoint]
+
+
+class CategoryOperationalMetrics(OperationalMetrics):
+    category: str
+    asins: list[AsinOperationalMetrics]
+    timeline: list[OperationalTimelinePoint]
+
+
 class OperationalDashboard(BaseModel):
     date_from: date | None
     date_to: date | None
@@ -110,4 +112,3 @@ class OperationalDashboard(BaseModel):
     summary: OperationalMetrics
     categories: list[CategoryOperationalMetrics]
     timeline: list[OperationalTimelinePoint]
-

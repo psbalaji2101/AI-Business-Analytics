@@ -71,6 +71,9 @@ async def test_forecast_actual_dashboard_and_unit_economics(client, auth_headers
     assert asin["volume_adjusted_budget"] == 110
     assert asin["adjusted_spend_variance"] == -5
     assert asin["status"] == "healthy"  # ₹105 is productive, not overspend
+    assert asin["timeline"][0]["expected_units"] == 10
+    assert asin["timeline"][0]["actual_units"] == 11
+    assert dashboard["categories"][0]["timeline"][0]["expected_units"] == 15
 
     timeline = dashboard["timeline"][0]
     assert timeline["cumulative_expected_units"] == 15
