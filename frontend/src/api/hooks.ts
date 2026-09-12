@@ -8,8 +8,10 @@ import type {
   ProductCard,
   RankingResponse,
   ManagedUser,
+  OperationalActualUploadResult,
   OperationalActualUpload,
   OperationalDashboard,
+  OperationalForecastAmendment,
   OperationalForecastUpload,
   OperationalUploadResult,
   ScrapeRun,
@@ -260,6 +262,18 @@ export function useOperationalForecasts() {
   });
 }
 
+export function useOperationalForecastAmendments() {
+  return useQuery({
+    queryKey: ["operational", "forecast-amendments"],
+    queryFn: async () =>
+      (
+        await api.get<OperationalForecastAmendment[]>(
+          "/operational/forecast-amendments"
+        )
+      ).data,
+  });
+}
+
 export function useOperationalActuals() {
   return useQuery({
     queryKey: ["operational", "actuals"],
@@ -284,6 +298,32 @@ export function useUploadOperationalForecast() {
   });
 }
 
+export function useAddOperationalTargetAsins() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      uploadId,
+      file,
+      effectiveFrom,
+    }: {
+      uploadId: number;
+      file: File;
+      effectiveFrom: string;
+    }) => {
+      const form = new FormData();
+      form.append("file", file);
+      return (
+        await api.post<OperationalUploadResult>(
+          `/operational/forecasts/${uploadId}/amendments`,
+          form,
+          { params: { effective_from: effectiveFrom } }
+        )
+      ).data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["operational"] }),
+  });
+}
+
 export function useUploadOperationalActual() {
   const qc = useQueryClient();
   return useMutation({
@@ -291,7 +331,7 @@ export function useUploadOperationalActual() {
       const form = new FormData();
       form.append("file", file);
       return (
-        await api.post<OperationalUploadResult>("/operational/actuals", form, {
+        await api.post<OperationalActualUploadResult>("/operational/actuals", form, {
           params: { report_date: reportDate },
         })
       ).data;
@@ -304,6 +344,15 @@ export function useDeleteOperationalForecast() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => (await api.delete(`/operational/forecasts/${id}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["operational"] }),
+  });
+}
+
+export function useDeleteOperationalTargetAmendment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) =>
+      (await api.delete(`/operational/forecast-amendments/${id}`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["operational"] }),
   });
 }

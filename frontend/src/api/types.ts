@@ -208,9 +208,33 @@ export interface OperationalUploadResult {
   spend: number;
 }
 
+export interface UnmatchedActualAsin {
+  asin: string;
+  orders: number;
+}
+
+export interface OperationalActualUploadResult extends OperationalUploadResult {
+  source_row_count: number;
+  source_units: number;
+  unmatched_units: number;
+  unmatched_asins: UnmatchedActualAsin[];
+}
+
 export interface OperationalForecastUpload {
   id: number;
   forecast_month: string;
+  filename: string;
+  uploaded_at: string;
+  row_count: number;
+  planned_units: number;
+  po_value: number;
+  total_budget: number;
+}
+
+export interface OperationalForecastAmendment {
+  id: number;
+  forecast_upload_id: number;
+  effective_from: string;
   filename: string;
   uploaded_at: string;
   row_count: number;
@@ -229,6 +253,10 @@ export interface OperationalActualUpload {
   actual_units: number;
   po_value: number;
   total_spend: number;
+  source_row_count: number;
+  source_units: number;
+  unmatched_units: number;
+  unmatched_asins: UnmatchedActualAsin[];
 }
 
 export interface OperationalSpendComponent {
@@ -253,15 +281,15 @@ export interface OperationalMetrics {
   adjusted_spend_variance: number;
   planned_cost_per_unit: number | null;
   actual_cost_per_unit: number | null;
+  target_cac: number | null;
+  cac: number | null;
   planned_spend_utilization_pct: number | null;
   actual_spend_utilization_pct: number | null;
   contribution_value: number;
   contribution_margin_pct: number | null;
   status: "healthy" | "efficient_but_behind" | "overspend" | "no_sales" | "no_target";
   spend_breakdown: {
-    ccogs: OperationalSpendComponent;
-    ads: OperationalSpendComponent;
-    coupons: OperationalSpendComponent;
+    ccogs_ads: OperationalSpendComponent;
     reviews: OperationalSpendComponent;
   };
 }
@@ -283,6 +311,9 @@ export interface OperationalTimelinePoint {
   date: string;
   expected_units: number;
   actual_units: number;
+  planned_po_value: number;
+  actual_po_value: number;
+  actual_ccogs_ads: number;
   cumulative_expected_units: number;
   cumulative_actual_units: number;
   planned_spend: number;

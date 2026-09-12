@@ -14,6 +14,16 @@ export function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString("en-IN");
 }
 
+export function formatRoundedINR(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+
+export function formatRoundedNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return value.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-GB");

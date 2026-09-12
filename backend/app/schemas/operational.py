@@ -1,7 +1,12 @@
 """API schemas for monthly operational plans and daily actuals."""
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class UnmatchedActualAsin(BaseModel):
+    asin: str
+    orders: float
 
 
 class OperationalUploadResult(BaseModel):
@@ -14,11 +19,32 @@ class OperationalUploadResult(BaseModel):
     spend: float
 
 
+class OperationalActualUploadResult(OperationalUploadResult):
+    source_row_count: int
+    source_units: float
+    unmatched_units: float
+    unmatched_asins: list[UnmatchedActualAsin]
+
+
 class ForecastUploadOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     forecast_month: date
+    filename: str
+    uploaded_at: datetime
+    row_count: int
+    planned_units: float
+    po_value: float
+    total_budget: float
+
+
+class ForecastAmendmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    forecast_upload_id: int
+    effective_from: date
     filename: str
     uploaded_at: datetime
     row_count: int
@@ -39,6 +65,10 @@ class ActualUploadOut(BaseModel):
     actual_units: float
     po_value: float
     total_spend: float
+    source_row_count: int = 0
+    source_units: float = 0
+    unmatched_units: float = 0
+    unmatched_asins: list[UnmatchedActualAsin] = Field(default_factory=list)
 
 
 class SpendComponent(BaseModel):
@@ -49,9 +79,7 @@ class SpendComponent(BaseModel):
 
 
 class SpendBreakdown(BaseModel):
-    ccogs: SpendComponent
-    ads: SpendComponent
-    coupons: SpendComponent
+    ccogs_ads: SpendComponent
     reviews: SpendComponent
 
 
@@ -70,6 +98,8 @@ class OperationalMetrics(BaseModel):
     adjusted_spend_variance: float
     planned_cost_per_unit: float | None
     actual_cost_per_unit: float | None
+    target_cac: float | None
+    cac: float | None
     planned_spend_utilization_pct: float | None
     actual_spend_utilization_pct: float | None
     contribution_value: float
@@ -82,6 +112,9 @@ class OperationalTimelinePoint(BaseModel):
     date: date
     expected_units: float
     actual_units: float
+    planned_po_value: float
+    actual_po_value: float
+    actual_ccogs_ads: float
     cumulative_expected_units: float
     cumulative_actual_units: float
     planned_spend: float

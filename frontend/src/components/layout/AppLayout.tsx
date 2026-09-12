@@ -26,7 +26,7 @@ import { errorMessage, useToast } from "../ui/Toast";
 const navItems = [
   { to: "/dashboard", label: "Business Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Business Analytics", icon: LineChart },
-  { to: "/operational-analytics", label: "Operational Analytics", icon: Radar },
+  { to: "/operational-analytics", label: "Target Vs Achieved", icon: Radar },
   { to: "/alerts", label: "Product Alerts", icon: BellRing },
   { to: "/sales", label: "Sales Report", icon: ShoppingBag },
   { to: "/users", label: "User Management", icon: UsersRound },

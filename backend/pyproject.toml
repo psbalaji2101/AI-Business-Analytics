@@ -33,6 +33,11 @@ scraping = [
     "playwright>=1.43",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["backups*", "tests*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

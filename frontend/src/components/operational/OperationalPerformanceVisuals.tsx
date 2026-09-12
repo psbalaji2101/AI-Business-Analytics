@@ -21,7 +21,11 @@ import {
   YAxis,
 } from "recharts";
 import type { OperationalDashboard, OperationalMetrics, OperationalTimelinePoint } from "../../api/types";
-import { formatINR, formatNumber } from "../../lib/utils";
+import {
+  formatINR as formatPreciseINR,
+  formatRoundedINR as formatINR,
+  formatRoundedNumber as formatNumber,
+} from "../../lib/utils";
 import { Badge } from "../ui/Badge";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Spinner";
@@ -36,16 +40,14 @@ const COLORS = {
 };
 
 const COMPONENTS = [
-  { key: "ccogs", label: "CCOGS", color: "#38bdf8" },
-  { key: "ads", label: "Ads", color: "#8b5cf6" },
-  { key: "coupons", label: "Coupons", color: "#f59e0b" },
-  { key: "reviews", label: "Reviews", color: "#ec4899" },
+  { key: "ccogs_ads", label: "CCOGS + Ads", color: "#38bdf8" },
+  { key: "reviews", label: "Review", color: "#ec4899" },
 ] as const;
 
 type ScopedMetrics = OperationalMetrics & { timeline: OperationalTimelinePoint[] };
 
 function pct(value: number | null) {
-  return value === null ? "—" : `${value.toFixed(1)}%`;
+  return value === null ? "—" : `${Math.round(value)}%`;
 }
 
 function signedINR(value: number) {
@@ -112,7 +114,7 @@ function DonutLegend({
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
         <div>
-          <p className="text-[var(--muted)]">Expected</p>
+          <p className="text-[var(--muted)]">Target</p>
           <p className="font-semibold text-[var(--text)]">{format(expected)}</p>
         </div>
         <div>
@@ -174,7 +176,7 @@ function BulletMeter({
         <span
           className="absolute top-[-4px] h-6 w-0.5 bg-slate-300"
           style={{ left: `${expectedLeft}%` }}
-          title={`Scheduled target: ${format(expected)}`}
+          title={`Monthly target: ${format(expected)}`}
         />
         {adjusted !== undefined && Math.abs(adjusted - expected) > 0.01 && (
           <span
@@ -187,7 +189,7 @@ function BulletMeter({
       <div className="mt-2 flex justify-between text-[10px] text-[var(--muted)]">
         <span>0</span>
         <span>
-          Gray marker: scheduled
+          Gray marker: target
           {adjusted !== undefined && Math.abs(adjusted - expected) > 0.01
             ? " · Green marker: unit-adjusted"
             : ""}
@@ -330,9 +332,13 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
               </option>
             ))}
           </Select>
-          <Badge variant={spendOverspent ? "red" : "green"} className="ml-auto">
-            {spendOverspent ? "Unit-adjusted overspend" : "Spend within unit economics"}
-          </Badge>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Badge variant="gray">Target CAC: {formatPreciseINR(scope.target_cac)}</Badge>
+            <Badge variant="violet">Actual CAC: {formatPreciseINR(scope.cac)}</Badge>
+            <Badge variant={spendOverspent ? "red" : "green"}>
+              {spendOverspent ? "Unit-adjusted overspend" : "Spend within unit economics"}
+            </Badge>
+          </div>
         </div>
       </Card>
 
@@ -361,6 +367,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
                     {spendData.map((entry) => <Cell key={`spend-${entry.name}`} fill={entry.color} />)}
                   </Pie>
                   <Tooltip
+                    formatter={(value) => formatNumber(Number(value))}
                     contentStyle={{
                       backgroundColor: "var(--panel)",
                       border: "1px solid var(--border)",
@@ -405,7 +412,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
                 percentage={spendPct}
                 money
                 favorableWhenPositive={false}
-                extra={`Scheduled budget: ${formatINR(scope.planned_spend)} · Volume-adjusted: ${formatINR(spendTarget)}`}
+                extra={`Target budget: ${formatINR(scope.planned_spend)} · Volume-adjusted: ${formatINR(spendTarget)}`}
               />
             </div>
           </div>
@@ -415,7 +422,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
           <div>
             <h3 className="text-sm font-semibold text-[var(--text)]">Progress / Bullet Graphs</h3>
             <p className="text-xs text-[var(--muted)]">
-              Filled bar = actual · target markers show scheduled and volume-adjusted limits
+              Filled bar = actual · markers show target and volume-adjusted limits
             </p>
           </div>
           <div className="mt-4 space-y-3">
@@ -464,11 +471,11 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text)]">Expected DRR vs Actual DRR · Daily</h3>
+            <h3 className="text-sm font-semibold text-[var(--text)]">Target DRR vs Actual DRR · Daily</h3>
             <p className="text-xs text-[var(--muted)]">{scopeLabel} · bars show each day; lines show cumulative units</p>
           </div>
           <div className="flex gap-2">
-            <Badge variant="gray">Expected</Badge>
+            <Badge variant="gray">Target</Badge>
             <Badge variant="violet">Actual</Badge>
           </div>
         </div>
@@ -477,9 +484,25 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
             <ComposedChart data={dailyData} margin={{ top: 20, right: 20, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" stroke="var(--muted)" fontSize={11} tickLine={false} />
-              <YAxis yAxisId="daily" stroke="var(--muted)" fontSize={11} tickLine={false} width={55} />
-              <YAxis yAxisId="cumulative" orientation="right" stroke="var(--muted)" fontSize={11} tickLine={false} width={55} />
+              <YAxis
+                yAxisId="daily"
+                stroke="var(--muted)"
+                fontSize={11}
+                tickLine={false}
+                width={55}
+                allowDecimals={false}
+              />
+              <YAxis
+                yAxisId="cumulative"
+                orientation="right"
+                stroke="var(--muted)"
+                fontSize={11}
+                tickLine={false}
+                width={55}
+                allowDecimals={false}
+              />
               <Tooltip
+                formatter={(value) => formatNumber(Number(value))}
                 contentStyle={{
                   backgroundColor: "var(--panel)",
                   border: "1px solid var(--border)",
@@ -488,9 +511,9 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
                 }}
               />
               <Legend />
-              <Bar yAxisId="daily" dataKey="expected_units" name="Expected DRR" fill={COLORS.target} radius={[3, 3, 0, 0]} />
+              <Bar yAxisId="daily" dataKey="expected_units" name="Target DRR" fill={COLORS.target} radius={[3, 3, 0, 0]} />
               <Bar yAxisId="daily" dataKey="actual_units" name="Actual DRR" fill={COLORS.units} radius={[3, 3, 0, 0]} />
-              <Line yAxisId="cumulative" type="monotone" dataKey="cumulative_expected_units" name="Cumulative expected" stroke="#cbd5e1" strokeDasharray="5 4" dot={false} />
+              <Line yAxisId="cumulative" type="monotone" dataKey="cumulative_expected_units" name="Cumulative target" stroke="#cbd5e1" strokeDasharray="5 4" dot={false} />
               <Line yAxisId="cumulative" type="monotone" dataKey="cumulative_actual_units" name="Cumulative actual" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
@@ -509,7 +532,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
             </p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           {recommendations.map((item) => (
             <div key={item.key} className="rounded-lg border border-[var(--border)] bg-[var(--panel-2)] p-3">
               <Badge variant={item.recommendation.variant}>

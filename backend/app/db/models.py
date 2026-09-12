@@ -172,8 +172,45 @@ class OperationalForecastUpload(Base):
     rows: Mapped[list["OperationalForecastRow"]] = relationship(
         back_populates="upload_ref", cascade="all, delete-orphan"
     )
+    amendments: Mapped[list["OperationalForecastAmendment"]] = relationship(
+        back_populates="forecast_ref", cascade="all, delete-orphan"
+    )
     actual_uploads: Mapped[list["OperationalActualUpload"]] = relationship(
         back_populates="forecast_ref"
+    )
+
+
+class OperationalForecastAmendment(Base):
+    """An immutable file that adds ASINs to an existing monthly target."""
+
+    __tablename__ = "operational_forecast_amendments"
+
+    id: Mapped[int] = mapped_column(PK, primary_key=True, autoincrement=True)
+    forecast_upload_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("operational_forecast_uploads.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    effective_from: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    filename: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    original_content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    row_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    planned_units: Mapped[float] = mapped_column(Numeric(16, 2), default=0, nullable=False)
+    po_value: Mapped[float] = mapped_column(Numeric(16, 2), default=0, nullable=False)
+    total_budget: Mapped[float] = mapped_column(Numeric(16, 2), default=0, nullable=False)
+
+    forecast_ref: Mapped["OperationalForecastUpload"] = relationship(
+        back_populates="amendments"
+    )
+    rows: Mapped[list["OperationalForecastRow"]] = relationship(
+        back_populates="amendment_ref"
     )
 
 
@@ -193,6 +230,12 @@ class OperationalForecastRow(Base):
     asin: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     short_name: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(Text, index=True, nullable=False)
+    effective_from: Mapped[date | None] = mapped_column(Date, index=True)
+    source_amendment_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("operational_forecast_amendments.id", ondelete="SET NULL"),
+        index=True,
+    )
     daily_run_rate: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     po_price: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     po_value: Mapped[float] = mapped_column(Numeric(16, 2), nullable=False)
@@ -203,6 +246,9 @@ class OperationalForecastRow(Base):
     total_budget: Mapped[float] = mapped_column(Numeric(16, 2), nullable=False)
 
     upload_ref: Mapped["OperationalForecastUpload"] = relationship(back_populates="rows")
+    amendment_ref: Mapped["OperationalForecastAmendment | None"] = relationship(
+        back_populates="rows"
+    )
     actual_rows: Mapped[list["OperationalActualRow"]] = relationship(
         back_populates="forecast_row_ref"
     )

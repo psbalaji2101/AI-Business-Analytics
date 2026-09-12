@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { InfoTooltip } from "./InfoTooltip";
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -20,18 +21,29 @@ export function KpiCard({
   sub,
   icon,
   accent,
+  className,
+  embedded = false,
+  description,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   icon?: ReactNode;
   accent?: string;
+  className?: string;
+  embedded?: boolean;
+  description?: string;
 }) {
-  return (
-    <Card className="p-5">
+  const content = (
+    <>
       <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">{label}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+              {label}
+            </p>
+            {description && <InfoTooltip label={label} description={description} />}
+          </div>
           <p className="mt-2 text-2xl font-bold text-[var(--text)]">{value}</p>
           {sub && <p className="mt-1 text-xs text-[var(--muted)]">{sub}</p>}
         </div>
@@ -44,6 +56,12 @@ export function KpiCard({
           </div>
         )}
       </div>
-    </Card>
+    </>
   );
+
+  if (embedded) {
+    return <div className={cn("bg-[var(--panel)] p-5", className)}>{content}</div>;
+  }
+
+  return <Card className={cn("p-5", className)}>{content}</Card>;
 }

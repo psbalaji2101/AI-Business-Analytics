@@ -12,13 +12,14 @@ PY := $(VBIN)/python
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install clean dev dev-backend dev-frontend scrape seed seed-asins test
+.PHONY: help install clean dev dev-backend dev-frontend share-backend preview-frontend tunnel share scrape seed seed-asins test
 
 help:
 	@echo "AI Business Analytics — available targets:"
 	@echo "  make install      Create the venv and install backend + frontend dependencies"
 	@echo "  make clean        Remove installed dependencies, caches and the local DB"
 	@echo "  make dev          Start the app: backend (:8000) + frontend (:5173) together"
+	@echo "  make share        Build and share a temporary Cloudflare preview URL"
 	@echo "  make scrape       Scrape all ACTIVE ASINs in the DB for fresh data"
 	@echo "  make seed         Seed 7 ASINs + ~90 days of synthetic history (demo)"
 	@echo "  make seed-asins   Seed 7 ASINs only (no snapshots), then run 'make scrape'"
@@ -46,6 +47,20 @@ dev-backend:
 
 dev-frontend:
 	cd frontend && npm run dev
+
+# Serve a production build locally and expose it through a temporary Cloudflare Quick Tunnel.
+# Ctrl+C stops the backend, preview server, and tunnel; the public URL then expires.
+share:
+	$(MAKE) -j3 share-backend preview-frontend tunnel
+
+share-backend:
+	cd backend && $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+preview-frontend:
+	cd frontend && npm run build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort
+
+tunnel:
+	cloudflared tunnel --url http://localhost:4173 --http-host-header localhost:4173
 
 # Scrape every ACTIVE ASIN currently in the database (uses the html adapter via .env).
 scrape:

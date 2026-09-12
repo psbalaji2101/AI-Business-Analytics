@@ -53,6 +53,21 @@ npm run dev
 ```
 App: http://localhost:5173
 
+### Temporary Cloudflare preview
+
+To share the app for feedback without deploying it, install `cloudflared`, then run:
+
+```bash
+make share
+```
+
+The command builds the frontend, starts FastAPI locally, and prints a temporary
+`https://...trycloudflare.com` URL. Share that URL and the demo login below. Keep the
+terminal and computer running; press `Ctrl+C` to stop the preview and expire the URL.
+
+This is a development-only public tunnel. Anyone with the URL can reach the login page, so
+do not use production credentials or sensitive data.
+
 ### Docker (full stack)
 ```powershell
 docker compose up --build

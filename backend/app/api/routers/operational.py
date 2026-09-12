@@ -10,7 +10,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.schemas.operational import (
     ActualUploadOut,
+    ForecastAmendmentOut,
     ForecastUploadOut,
+    OperationalActualUploadResult,
     OperationalDashboard,
     OperationalUploadResult,
 )
@@ -30,7 +32,7 @@ def _month(value: str) -> date:
         year, month = (int(part) for part in value.split("-"))
         return date(year, month, 1)
     except (TypeError, ValueError) as error:
-        raise HTTPException(422, "Forecast month must use YYYY-MM format.") from error
+        raise HTTPException(422, "Target month must use YYYY-MM format.") from error
 
 
 def _file_response(content: bytes, filename: str, content_type: str) -> Response:
@@ -49,18 +51,40 @@ async def upload_forecast(
 ) -> OperationalUploadResult:
     try:
         return await OperationalService(db).upload_forecast(
-            _month(forecast_month), file.filename or "forecast.csv", await file.read()
+            _month(forecast_month), file.filename or "Monthly Target.csv", await file.read()
         )
     except OperationalError as error:
         _raise(error)
 
 
-@router.post("/actuals", response_model=OperationalUploadResult, status_code=201)
+@router.post(
+    "/forecasts/{upload_id}/amendments",
+    response_model=OperationalUploadResult,
+    status_code=201,
+)
+async def add_forecast_asins(
+    upload_id: int,
+    effective_from: date,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+) -> OperationalUploadResult:
+    try:
+        return await OperationalService(db).add_forecast_asins(
+            upload_id,
+            effective_from,
+            file.filename or "target-amendment.csv",
+            await file.read(),
+        )
+    except OperationalError as error:
+        _raise(error)
+
+
+@router.post("/actuals", response_model=OperationalActualUploadResult, status_code=201)
 async def upload_actual(
     report_date: date,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-) -> OperationalUploadResult:
+) -> OperationalActualUploadResult:
     try:
         return await OperationalService(db).upload_actual(
             report_date, file.filename or "actuals.csv", await file.read()
@@ -72,6 +96,13 @@ async def upload_actual(
 @router.get("/forecasts", response_model=list[ForecastUploadOut])
 async def list_forecasts(db: AsyncSession = Depends(get_db)) -> list[ForecastUploadOut]:
     return await OperationalService(db).list_forecasts()
+
+
+@router.get("/forecast-amendments", response_model=list[ForecastAmendmentOut])
+async def list_forecast_amendments(
+    db: AsyncSession = Depends(get_db),
+) -> list[ForecastAmendmentOut]:
+    return await OperationalService(db).list_forecast_amendments()
 
 
 @router.get("/actuals", response_model=list[ActualUploadOut])
@@ -95,11 +126,36 @@ async def delete_actual(upload_id: int, db: AsyncSession = Depends(get_db)) -> N
         _raise(error)
 
 
+@router.delete(
+    "/forecast-amendments/{amendment_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_forecast_amendment(
+    amendment_id: int, db: AsyncSession = Depends(get_db)
+) -> None:
+    try:
+        await OperationalService(db).delete_forecast_amendment(amendment_id)
+    except OperationalError as error:
+        _raise(error)
+
+
 @router.get("/forecasts/{upload_id}/download")
 async def download_forecast(upload_id: int, db: AsyncSession = Depends(get_db)) -> Response:
     try:
         upload = await OperationalService(db).original_forecast(upload_id)
         return _file_response(upload.original_content, upload.filename, upload.content_type)
+    except OperationalError as error:
+        _raise(error)
+
+
+@router.get("/forecast-amendments/{amendment_id}/download")
+async def download_forecast_amendment(
+    amendment_id: int, db: AsyncSession = Depends(get_db)
+) -> Response:
+    try:
+        amendment = await OperationalService(db).original_forecast_amendment(amendment_id)
+        return _file_response(
+            amendment.original_content, amendment.filename, amendment.content_type
+        )
     except OperationalError as error:
         _raise(error)
 
