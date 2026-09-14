@@ -272,7 +272,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
     : selectedCategory?.category ?? "All Categories";
 
   const spendTarget = scope.volume_adjusted_budget;
-  const spendOverspent = scope.actual_spend > spendTarget * (1 + dashboard.tolerance_pct / 100);
+  const spendOverspent = scope.actual_spend > spendTarget;
   const unitData = ringData(scope.actual_units, scope.planned_units, COLORS.units);
   const poData = ringData(scope.actual_po_value, scope.planned_po_value, COLORS.po);
   const spendData = ringData(scope.actual_spend, spendTarget, COLORS.spend, spendOverspent);
@@ -336,7 +336,7 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
             <Badge variant="gray">Target CAC: {formatPreciseINR(scope.target_cac)}</Badge>
             <Badge variant="violet">Actual CAC: {formatPreciseINR(scope.cac)}</Badge>
             <Badge variant={spendOverspent ? "red" : "green"}>
-              {spendOverspent ? "Unit-adjusted overspend" : "Spend within unit economics"}
+              {spendOverspent ? "Over-Spent" : "Under-Spent"}
             </Badge>
           </div>
         </div>

@@ -9,7 +9,6 @@ import {
 import type {
   CategoryOperationalMetrics,
   OperationalDashboard,
-  OperationalMetrics,
 } from "../../api/types";
 import {
   formatINR as formatPreciseINR,
@@ -21,29 +20,25 @@ import { Card } from "../ui/Card";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { Input, Select } from "../ui/Spinner";
 
-type SpendView = "overspent" | "controlled" | "custom";
-type CustomStatus = "all" | OperationalMetrics["status"];
+type SpendView = "overspent" | "underspent" | "custom";
+type CustomStatus = "all" | "overspent" | "underspent";
 
 const viewOptions: Array<{
   value: SpendView;
   label: string;
   icon: typeof AlertTriangle;
 }> = [
-  { value: "overspent", label: "Overspent", icon: AlertTriangle },
-  { value: "controlled", label: "Under control", icon: CheckCircle2 },
+  { value: "overspent", label: "Over-Spent", icon: AlertTriangle },
+  { value: "underspent", label: "Under-Spent", icon: CheckCircle2 },
   { value: "custom", label: "Custom filter", icon: SlidersHorizontal },
 ];
 
-function SpendStatus({ status }: { status: OperationalMetrics["status"] }) {
-  const config = {
-    healthy: { label: "On track", variant: "green" as const },
-    efficient_but_behind: { label: "Under control", variant: "amber" as const },
-    overspend: { label: "Overspent", variant: "red" as const },
-    no_sales: { label: "No sales", variant: "gray" as const },
-    no_target: { label: "No target", variant: "gray" as const },
-  }[status];
-
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+function SpendStatus({ variance }: { variance: number }) {
+  return variance > 0 ? (
+    <Badge variant="red">Over-Spent</Badge>
+  ) : (
+    <Badge variant="green">Under-Spent</Badge>
+  );
 }
 
 function varianceClass(value: number) {
@@ -75,21 +70,19 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const overspentCount = dashboard.categories.filter(
-    (category) => category.status === "overspend"
+    (category) => category.adjusted_spend_variance > 0
   ).length;
-  const controlledCount = dashboard.categories.filter(
-    (category) =>
-      category.status === "healthy" || category.status === "efficient_but_behind"
+  const underspentCount = dashboard.categories.filter(
+    (category) => category.adjusted_spend_variance <= 0
   ).length;
 
   const filteredCategories = useMemo(() => {
     const categories = dashboard.categories.filter((category) => {
-      if (view === "overspent") return category.status === "overspend";
-      if (view === "controlled") {
-        return category.status === "healthy" || category.status === "efficient_but_behind";
-      }
+      if (view === "overspent") return category.adjusted_spend_variance > 0;
+      if (view === "underspent") return category.adjusted_spend_variance <= 0;
       if (!matchesSearch(category, query)) return false;
-      if (customStatus !== "all" && category.status !== customStatus) return false;
+      if (customStatus === "overspent" && category.adjusted_spend_variance <= 0) return false;
+      if (customStatus === "underspent" && category.adjusted_spend_variance > 0) return false;
 
       const minimum = minimumVariance.trim() === "" ? null : Number(minimumVariance);
       const maximum = maximumVariance.trim() === "" ? null : Number(maximumVariance);
@@ -106,7 +99,7 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
       if (view === "overspent") {
         return right.adjusted_spend_variance - left.adjusted_spend_variance;
       }
-      if (view === "controlled") {
+      if (view === "underspent") {
         return left.adjusted_spend_variance - right.adjusted_spend_variance;
       }
       return left.category.localeCompare(right.category);
@@ -122,7 +115,7 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
   const visibleSelection = selectedIsVisible ? selected : undefined;
   const tabCount = (value: SpendView) => {
     if (value === "overspent") return overspentCount;
-    if (value === "controlled") return controlledCount;
+    if (value === "underspent") return underspentCount;
     return dashboard.categories.length;
   };
 
@@ -144,20 +137,16 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                       <p>
                         <span className="font-semibold">Adjusted budget</span> is the planned cost
                         per order multiplied by actual orders. Actual spend is ADS+Cogs plus OPA
-                        Payment. A 5% tolerance is allowed above the adjusted budget.
+                        Payment. The budget is strict, with no tolerance applied.
                       </p>
                       <ul className="space-y-1">
                         <li>
-                          <span className="font-semibold">On track:</span> within the allowed spend
-                          limit and at least 95% of target orders achieved.
+                          <span className="font-semibold">Under-Spent:</span> actual spend is equal to
+                          or below the unit-adjusted budget.
                         </li>
                         <li>
-                          <span className="font-semibold">Under control:</span> within the allowed
-                          spend limit but below 95% of target orders.
-                        </li>
-                        <li>
-                          <span className="font-semibold">Overspent:</span> actual spend is above
-                          adjusted budget × 1.05.
+                          <span className="font-semibold">Over-Spent:</span> actual spend is above
+                          the unit-adjusted budget.
                         </li>
                         <li>
                           <span className="font-semibold">No sales:</span> a target exists, but there
@@ -168,10 +157,6 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                           for the category.
                         </li>
                       </ul>
-                      <p>
-                        The Under control filter includes both On track and Under control because
-                        both remain within the permitted spend limit.
-                      </p>
                     </div>
                   }
                 />
@@ -241,11 +226,8 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                   className="w-full"
                 >
                   <option value="all">All statuses</option>
-                  <option value="overspend">Overspent</option>
-                  <option value="healthy">On track</option>
-                  <option value="efficient_but_behind">Under control</option>
-                  <option value="no_sales">No sales</option>
-                  <option value="no_target">No target</option>
+                  <option value="overspent">Over-Spent</option>
+                  <option value="underspent">Under-Spent</option>
                 </Select>
               </label>
               <label>
@@ -310,7 +292,7 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
                         <span>{formatNumber(category.asins.length)} products</span>
-                        <SpendStatus status={category.status} />
+                        <SpendStatus variance={category.adjusted_spend_variance} />
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
@@ -334,8 +316,8 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                 <p className="mt-1 text-xs text-[var(--muted)]">
                   {view === "overspent"
                     ? "No category is currently above its allowed spend."
-                    : view === "controlled"
-                      ? "No category is currently classified as under control."
+                    : view === "underspent"
+                      ? "No category is currently Under-Spent."
                       : "Try a different category, product, or ASIN search."}
                 </p>
               </div>
@@ -352,7 +334,7 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                     <h4 className="text-sm font-semibold text-[var(--text)]">
                       {visibleSelection.category}
                     </h4>
-                    <SpendStatus status={visibleSelection.status} />
+                    <SpendStatus variance={visibleSelection.adjusted_spend_variance} />
                   </div>
                   <p className="mt-1 text-xs text-[var(--muted)]">
                     {formatINR(visibleSelection.actual_spend)} actual spend vs{" "}
@@ -427,7 +409,7 @@ export function CategorySpendControl({ dashboard }: { dashboard: OperationalDash
                             {formatPreciseINR(asin.cac)}
                           </td>
                           <td className="px-4 py-3">
-                            <SpendStatus status={asin.status} />
+                            <SpendStatus variance={asin.adjusted_spend_variance} />
                           </td>
                         </tr>
                       ))}

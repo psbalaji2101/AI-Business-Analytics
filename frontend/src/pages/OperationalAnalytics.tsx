@@ -842,18 +842,20 @@ export default function OperationalAnalytics() {
             </Card>
           </div>
 
-          <Card>
-            <div className="border-b border-[var(--border)] px-5 py-4">
+          <Card className="flex h-[680px] flex-col overflow-hidden">
+            <div className="shrink-0 border-b border-[var(--border)] px-5 py-4">
               <h3 className="text-sm font-semibold text-[var(--text)]">Category Performance</h3>
               <p className="text-xs text-[var(--muted)]">
                 Select a category to drill down to ASINs. Component detail shows actual / adjusted budget.
               </p>
             </div>
-            <div className="overflow-x-auto">
+            <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full min-w-[1660px] text-sm">
-                <thead>
+                <thead className="sticky top-0 z-20 bg-[var(--panel)] shadow-[0_1px_0_var(--border)]">
                   <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wide text-[var(--muted)]">
-                    <th className="px-4 py-3">Category / ASIN</th>
+                    <th className="sticky left-0 z-30 bg-[var(--panel)] px-4 py-3 shadow-[1px_0_0_var(--border)]">
+                      Category / ASIN
+                    </th>
                     <th className="px-4 py-3 text-right">Target Units</th>
                     <th className="px-4 py-3 text-right">Actual Units</th>
                     <MetricHeader
@@ -897,7 +899,7 @@ export default function OperationalAnalytics() {
                         className="cursor-pointer border-b border-[var(--border)] bg-[var(--panel-2)]/50 hover:bg-[var(--panel-2)]"
                         onClick={() => toggleCategory(category.category)}
                       >
-                        <td className="px-4 py-3 font-semibold text-[var(--text)]">
+                        <td className="sticky left-0 z-10 bg-[var(--panel-2)] px-4 py-3 font-semibold text-[var(--text)] shadow-[1px_0_0_var(--border)]">
                           <span className="flex items-center gap-2">
                             {expanded.has(category.category) ? (
                               <ChevronDown size={15} />
@@ -919,7 +921,7 @@ export default function OperationalAnalytics() {
                             key={`${category.category}-${asin.asin}`}
                             className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--panel-2)]/60"
                           >
-                            <td className="py-3 pl-11 pr-4">
+                            <td className="sticky left-0 z-10 bg-[var(--panel)] py-3 pl-11 pr-4 shadow-[1px_0_0_var(--border)]">
                               <p className="font-semibold text-[var(--text)]">{asin.short_name}</p>
                               <p className="text-xs text-[var(--muted)]">{asin.asin}</p>
                               <SpendDetail row={asin} />
