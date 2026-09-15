@@ -438,6 +438,7 @@ def _build_timeline(
                 cumulative_actual_units=_round(cumulative["actual_units"]),
                 planned_spend=_round(planned_spend),
                 actual_spend=_round(actual_spend),
+                adjusted_budget=_round(adjusted),
                 cumulative_planned_spend=_round(cumulative["planned_spend"]),
                 cumulative_actual_spend=_round(cumulative["actual_spend"]),
                 cumulative_adjusted_budget=_round(cumulative["adjusted_budget"]),

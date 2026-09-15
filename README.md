@@ -75,6 +75,35 @@ docker compose up --build
 - Frontend: http://localhost:5173 (nginx serves the build and proxies `/api` → backend)
 - Backend: http://localhost:8000 (uses the live HTML scraper + Postgres)
 
+### Run the published single-container image
+
+The distributable image contains both the React frontend and FastAPI backend. It uses a
+persistent SQLite database, so a client only needs Docker:
+
+```bash
+docker pull balajipsb/ai-business-analytics:15.09.26-2
+docker run -d \
+  --name ai-business-analytics \
+  -p 8000:8000 \
+  -v ai-business-data:/data \
+  --restart unless-stopped \
+  -e JWT_SECRET="replace-with-a-long-random-secret" \
+  balajipsb/ai-business-analytics:15.09.26-2
+```
+
+Open http://localhost:8000. To upgrade while retaining data:
+
+```bash
+docker pull balajipsb/ai-business-analytics:15.09.26-2
+docker stop ai-business-analytics
+docker rm ai-business-analytics
+# Run the docker run command above again; the ai-business-data volume is retained.
+```
+
+Set `AUTH_EMAIL`, `AUTH_PASSWORD`, and `SCRAPER_ADAPTER=html` with additional `-e` options
+when the client needs a different initial login or live Amazon scraping. For PostgreSQL,
+set `DATABASE_URL` and omit the SQLite volume if it is not needed.
+
 ## Testing
 ```powershell
 cd backend

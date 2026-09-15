@@ -119,6 +119,7 @@ class OperationalTimelinePoint(BaseModel):
     cumulative_actual_units: float
     planned_spend: float
     actual_spend: float
+    adjusted_budget: float
     cumulative_planned_spend: float
     cumulative_actual_spend: float
     cumulative_adjusted_budget: float

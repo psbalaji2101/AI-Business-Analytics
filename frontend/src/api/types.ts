@@ -318,6 +318,7 @@ export interface OperationalTimelinePoint {
   cumulative_actual_units: number;
   planned_spend: number;
   actual_spend: number;
+  adjusted_budget: number;
   cumulative_planned_spend: number;
   cumulative_actual_spend: number;
   cumulative_adjusted_budget: number;

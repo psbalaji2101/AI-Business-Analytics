@@ -8,7 +8,6 @@ import {
   Copy,
   Download,
   FileSpreadsheet,
-  Gauge,
   IndianRupee,
   PackageCheck,
   Plus,
@@ -636,7 +635,7 @@ export default function OperationalAnalytics() {
         {dashboard.isLoading ? (
           <Spinner label="Calculating operational performance…" />
         ) : (
-          <div className="grid gap-px bg-[var(--border)] sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-px bg-[var(--border)] sm:grid-cols-2 xl:grid-cols-5">
             <KpiCard
               label="Unit Achievement"
               value={percent(summary?.unit_achievement_pct)}
@@ -662,37 +661,6 @@ export default function OperationalAnalytics() {
               embedded
             />
             <KpiCard
-              label="CAC"
-              value={
-                <span className="flex items-end gap-4">
-                  <span>
-                    <span className="block text-[10px] font-medium uppercase tracking-wide text-[var(--muted)]">
-                      Target
-                    </span>
-                    {formatPreciseINR(summary?.target_cac)}
-                  </span>
-                  <span className="border-l border-[var(--border)] pl-4">
-                    <span className="block text-[10px] font-medium uppercase tracking-wide text-[var(--muted)]">
-                      Actual
-                    </span>
-                    {formatPreciseINR(summary?.cac)}
-                  </span>
-                </span>
-              }
-              sub="Target and actual CCOGS + Ads cost per order"
-              icon={<Gauge size={18} />}
-              description="Target CAC uses only target data: target CCOGS + Ads budget divided by target orders. Actual CAC uses actual CCOGS + Ads spend divided by actual orders."
-              embedded
-            />
-            <KpiCard
-              label="Actual Cost / Unit"
-              value={formatINR(summary?.actual_cost_per_unit)}
-              sub={`${formatINR(summary?.planned_cost_per_unit)} planned per unit`}
-              icon={<Gauge size={18} />}
-              description="Total actual spend, including ADS+Cogs and OPA Payment, divided by actual orders."
-              embedded
-            />
-            <KpiCard
               label="Contribution After Spend"
               value={formatINR(summary?.contribution_value)}
               sub={`${percent(summary?.contribution_margin_pct)} contribution margin`}
@@ -706,7 +674,7 @@ export default function OperationalAnalytics() {
               sub={`${percent(summary?.planned_spend_utilization_pct)} planned spend / PO value`}
               icon={<IndianRupee size={18} />}
               description="Total actual spend divided by actual PO value. The comparison below uses target spend divided by target PO value."
-              className="sm:col-span-2 xl:col-span-2"
+              className="sm:col-span-2 xl:col-span-1"
               embedded
             />
           </div>

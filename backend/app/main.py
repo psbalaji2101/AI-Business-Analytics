@@ -1,9 +1,13 @@
 """FastAPI application entry point."""
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routers import (
     admin,
@@ -58,3 +62,23 @@ app.include_router(operational.router, prefix=prefix)
 @app.get("/health", tags=["health"])
 async def health() -> dict:
     return {"status": "ok", "app": settings.app_name, "env": settings.environment}
+
+
+# The published all-in-one image includes the compiled React application. Local
+# development continues to use Vite when FRONTEND_DIST_DIR is absent.
+frontend_dist_setting = os.environ.get("FRONTEND_DIST_DIR")
+frontend_dist = Path(frontend_dist_setting) if frontend_dist_setting else None
+if frontend_dist and frontend_dist.is_dir():
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_frontend(path: str) -> FileResponse:
+        if path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        requested_file = (frontend_dist / path).resolve()
+        if requested_file.is_relative_to(frontend_dist.resolve()) and requested_file.is_file():
+            return FileResponse(requested_file)
+        return FileResponse(frontend_dist / "index.html")

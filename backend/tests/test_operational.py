@@ -120,6 +120,34 @@ async def test_forecast_actual_dashboard_and_unit_economics(client, auth_headers
 
 
 @pytest.mark.asyncio
+async def test_daily_spend_is_not_cumulative_and_follows_product_scope(client, auth_headers):
+    await upload_forecast(client, auth_headers)
+    await upload_actual(client, auth_headers)
+    await upload_actual(
+        client,
+        auth_headers,
+        content=ACTUAL_CSV.replace(",11,100,105,0", ",6,100,70,0").encode(),
+        report_date="2026-04-02",
+    )
+    response = await client.get(
+        "/api/v1/operational/dashboard",
+        params={"date_from": "2026-04-01", "date_to": "2026-04-02"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200, response.text
+    dashboard = response.json()
+    category = dashboard["categories"][0]
+    product = next(row for row in category["asins"] if row["asin"] == "B0OPER0001")
+    for scope, expected in [(dashboard, 150), (category, 150), (product, 100)]:
+        assert [
+            (point["planned_spend"], point["adjusted_budget"], point["actual_spend"])
+            for point in scope["timeline"]
+        ] == [(expected, 110, 105), (expected, 60, 70)]
+    omitted = next(row for row in category["asins"] if row["asin"] == "B0OPER0002")
+    assert [point["adjusted_budget"] for point in omitted["timeline"]] == [0, 0]
+
+
+@pytest.mark.asyncio
 async def test_spend_above_adjusted_budget_and_tolerance_is_flagged(client, auth_headers):
     await upload_forecast(client, auth_headers)
     overspend = ACTUAL_CSV.replace(",105,0", ",116,0").encode()

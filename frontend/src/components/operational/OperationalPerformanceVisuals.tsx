@@ -13,6 +13,7 @@ import {
   ComposedChart,
   Legend,
   Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -278,7 +279,15 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
   const spendData = ringData(scope.actual_spend, spendTarget, COLORS.spend, spendOverspent);
   const spendPct = spendTarget ? (scope.actual_spend / spendTarget) * 100 : null;
 
-  const dailyData = scope.timeline.map((point) => ({ ...point, day: point.date.slice(5) }));
+  const dailyData = scope.timeline.map((point, index) => ({
+    ...point,
+    day: point.date.slice(5),
+    // Older API responses only include the cumulative adjusted budget.
+    adjusted_budget: point.adjusted_budget ?? Number((
+      point.cumulative_adjusted_budget -
+      (scope.timeline[index - 1]?.cumulative_adjusted_budget ?? 0)
+    ).toFixed(2)),
+  }));
   const recommendations = COMPONENTS.map((component) => {
     const values = scope.spend_breakdown[component.key];
     return {
@@ -516,6 +525,43 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
               <Line yAxisId="cumulative" type="monotone" dataKey="cumulative_expected_units" name="Cumulative target" stroke="#cbd5e1" strokeDasharray="5 4" dot={false} />
               <Line yAxisId="cumulative" type="monotone" dataKey="cumulative_actual_units" name="Cumulative actual" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
             </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="py-16 text-center text-sm text-[var(--muted)]">No daily data for this scope.</p>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-[var(--text)]">Total Spend · Daily</h3>
+        <p className="text-xs text-[var(--muted)]">
+          {scopeLabel} · expected, unit-adjusted, and actual spend for each day
+        </p>
+        {dailyData.length ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={dailyData} margin={{ top: 20, right: 20, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" tickFormatter={(value: string) => value.slice(5)} stroke="var(--muted)" fontSize={11} tickLine={false} />
+              <YAxis
+                stroke="var(--muted)"
+                fontSize={11}
+                tickLine={false}
+                width={90}
+                tickFormatter={(value: number) => formatINR(value)}
+              />
+              <Tooltip
+                formatter={(value) => formatPreciseINR(Number(value))}
+                contentStyle={{
+                  backgroundColor: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  color: "var(--text)",
+                }}
+              />
+              <Legend />
+              <Line type="linear" dataKey="planned_spend" name="Expected spend" stroke={COLORS.target} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              <Line type="linear" dataKey="actual_spend" name="Actual spend" stroke={COLORS.spend} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              <Line type="linear" dataKey="adjusted_budget" name="Unit-adjusted spend" stroke={COLORS.po} strokeWidth={3} strokeDasharray="6 4" dot={{ r: 5, fill: "none", strokeWidth: 2 }} activeDot={{ r: 7, fill: "none", strokeWidth: 2 }} />
+            </LineChart>
           </ResponsiveContainer>
         ) : (
           <p className="py-16 text-center text-sm text-[var(--muted)]">No daily data for this scope.</p>
