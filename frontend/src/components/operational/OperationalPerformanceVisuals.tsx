@@ -569,6 +569,56 @@ export function OperationalPerformanceVisuals({ dashboard }: { dashboard: Operat
       </Card>
 
       <Card className="p-5">
+        <h3 className="text-sm font-semibold text-[var(--text)]">PO Value · Daily</h3>
+        <p className="text-xs text-[var(--muted)]">
+          {scopeLabel} · achieved PO value against each day's target · missing actual rows count as zero
+        </p>
+        {dailyData.length ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={dailyData} margin={{ top: 20, right: 20, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" tickFormatter={(value: string) => value.slice(5)} stroke="var(--muted)" fontSize={11} tickLine={false} />
+              <YAxis
+                stroke="var(--muted)"
+                fontSize={11}
+                tickLine={false}
+                width={90}
+                tickFormatter={(value: number) => formatINR(value)}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  const point = payload?.[0]?.payload as OperationalTimelinePoint | undefined;
+                  if (!active || !point) return null;
+                  const difference = point.actual_po_value - point.planned_po_value;
+                  const achievement = point.planned_po_value > 0
+                    ? `${((point.actual_po_value / point.planned_po_value) * 100).toFixed(1)}% of target`
+                    : "No target";
+                  return (
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--panel)] p-3 text-xs text-[var(--text)] shadow-lg">
+                      <p className="mb-2 font-semibold">{point.date}</p>
+                      <p>Achieved PO value: {formatPreciseINR(point.actual_po_value)}</p>
+                      <p>Target PO value: {formatPreciseINR(point.planned_po_value)}</p>
+                      <p className="mt-2 font-semibold">{achievement}</p>
+                      {point.planned_po_value > 0 && (
+                        <p className={metricTone(difference, true)}>
+                          {formatPreciseINR(Math.abs(difference))} {difference > 0 ? "above target" : difference < 0 ? "below target" : "· target met"}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+              <Legend />
+              <Bar dataKey="actual_po_value" name="Achieved PO value" fill={COLORS.po} radius={[3, 3, 0, 0]} maxBarSize={40} />
+              <Line type="linear" dataKey="planned_po_value" name="Target PO value" stroke={COLORS.target} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="py-16 text-center text-sm text-[var(--muted)]">No daily data for this scope.</p>
+        )}
+      </Card>
+
+      <Card className="p-5">
         <div className="flex items-center gap-2">
           <CircleDollarSign size={18} className="text-[var(--accent)]" />
           <div>

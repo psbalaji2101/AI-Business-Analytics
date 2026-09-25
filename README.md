@@ -81,24 +81,49 @@ The distributable image contains both the React frontend and FastAPI backend. It
 persistent SQLite database, so a client only needs Docker:
 
 ```bash
-docker pull balajipsb/ai-business-analytics:15.09.26-2
+docker pull balajipsb/ai-business-analytics:22.09.26-1
 docker run -d \
   --name ai-business-analytics \
   -p 8000:8000 \
   -v ai-business-data:/data \
   --restart unless-stopped \
   -e JWT_SECRET="replace-with-a-long-random-secret" \
-  balajipsb/ai-business-analytics:15.09.26-2
+  balajipsb/ai-business-analytics:22.09.26-1
 ```
 
 Open http://localhost:8000. To upgrade while retaining data:
 
 ```bash
-docker pull balajipsb/ai-business-analytics:15.09.26-2
+docker pull balajipsb/ai-business-analytics:22.09.26-1
+
+# Preserve existing settings (including JWT_SECRET) in a private backup directory.
+umask 077
+backup_dir="$(mktemp -d ./ai-business-backup.XXXXXX)"
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' ai-business-analytics > "$backup_dir/container.env"
+
+# Stop writes before copying the SQLite database and other persistent files.
 docker stop ai-business-analytics
-docker rm ai-business-analytics
-# Run the docker run command above again; the ai-business-data volume is retained.
+docker cp ai-business-analytics:/data "$backup_dir/data"
+docker rename ai-business-analytics ai-business-analytics-previous-22.09.26-1
+
+# Reuse the previous container's exact volumes and environment.
+docker run -d \
+  --name ai-business-analytics \
+  -p 8000:8000 \
+  --volumes-from ai-business-analytics-previous-22.09.26-1 \
+  --env-file "$backup_dir/container.env" \
+  --restart unless-stopped \
+  balajipsb/ai-business-analytics:22.09.26-1
+
+curl --fail http://localhost:8000/health
 ```
+
+Run these commands one at a time and stop if any fails. They apply to the single-container
+SQLite setup above; retain your existing port mapping if it differs. Allow a few seconds
+for startup before the health check. The stopped previous container remains available
+for rollback. Keep the backup directory private because it contains credentials and data.
+Do not delete the data volume. External PostgreSQL deployments need a database-native
+backup instead of the `/data` copy.
 
 Set `AUTH_EMAIL`, `AUTH_PASSWORD`, and `SCRAPER_ADAPTER=html` with additional `-e` options
 when the client needs a different initial login or live Amazon scraping. For PostgreSQL,
